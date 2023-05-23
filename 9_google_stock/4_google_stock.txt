@@ -1,0 +1,251 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[1]:
+
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+import warnings
+warnings.filterwarnings('ignore')
+
+
+# In[2]:
+
+
+data = pd.read_csv('Google_Stock_Price_Train.csv')
+testData = pd.read_csv('Google_Stock_Price_Test.csv')
+
+
+# In[3]:
+
+
+print(data.shape)
+data.head()
+
+
+# In[4]:
+
+
+print(testData.shape)
+testData.head()
+
+
+# In[5]:
+
+
+data.isnull().sum()
+
+
+# In[6]:
+
+
+testData.isnull().sum()
+
+
+# In[7]:
+
+
+def FloatConversion(x):
+    x = str(x)
+    x = x.replace(',', '').replace("'", '')
+    return float(x)
+
+
+data = data[['Date', 'Close']]
+testData = testData[['Date', 'Close']]
+
+
+data['Close'] = data['Close'].apply(FloatConversion)
+testData['Close'] = testData['Close'].apply(FloatConversion)
+
+
+# In[8]:
+
+
+data.info()
+
+
+# In[9]:
+
+
+testData.info()
+
+
+# In[10]:
+
+
+data.head()
+
+
+# In[11]:
+
+
+testData.head()
+
+
+# In[12]:
+
+
+plt.figure(figsize=(15, 5))
+plt.plot(data['Close'])
+plt.title('Google Stock Price (Training Set)')
+plt.show()
+
+plt.figure(figsize=(15, 5))
+plt.plot(testData['Close'])
+plt.title('Google Stock Price (Test Set)')
+plt.show()
+
+
+# In[13]:
+
+
+from sklearn.preprocessing import MinMaxScaler
+sc = MinMaxScaler(feature_range=(0, 1))
+
+data['Close'] = sc.fit_transform(data['Close'].values.reshape(-1, 1))
+testData['Close'] = sc.transform(testData['Close'].values.reshape(-1, 1))
+
+
+# In[14]:
+
+
+data.head()
+
+
+# In[15]:
+
+
+testData.head()
+
+
+# In[16]:
+
+
+plt.figure(figsize=(15, 5))
+plt.plot(data['Close'])
+plt.title('Google Stock Price (Training Set)')
+plt.show()
+
+plt.figure(figsize=(15, 5))
+plt.plot(testData['Close'])
+plt.title('Google Stock Price (Test Set)')
+plt.show()
+
+
+# In[17]:
+
+
+X_train = []
+y_train = []
+timesteps = 50
+CloseData = list(data['Close'])
+for i in range(timesteps, len(CloseData)):
+    X_train.append(CloseData[i-timesteps:i])
+    y_train.append(CloseData[i])
+X_train, y_train = np.array(X_train), np.array(y_train)
+
+
+# In[18]:
+
+
+print(X_train.shape, y_train.shape)
+
+
+# In[19]:
+
+
+from keras.models import Sequential
+from keras.layers import Dense, SimpleRNN, Dropout
+
+model = Sequential()
+model.add(SimpleRNN(units=50, activation='tanh', return_sequences=True, input_shape=(X_train.shape[1], 1)))
+model.add(Dropout(0.2))
+
+model.add(SimpleRNN(units=50, activation='tanh', return_sequences=True))
+model.add(Dropout(0.2))
+
+model.add(SimpleRNN(units=50, activation='tanh', return_sequences=True))
+model.add(Dropout(0.2))
+
+model.add(SimpleRNN(units=50, activation='tanh'))
+model.add(Dropout(0.2))
+
+model.add(Dense(units=1))
+
+model.compile(optimizer='adam', loss='mean_squared_error')
+
+
+# In[20]:
+
+
+model.summary()
+
+
+# In[21]:
+
+
+model.fit(X_train, y_train, epochs=100, batch_size=32)
+
+
+# In[22]:
+
+
+ypred = model.predict(X_train)
+ypred = sc.inverse_transform(ypred)
+
+y_train = sc.inverse_transform(y_train.reshape(-1, 1))
+
+
+plt.figure(figsize=(15, 5))
+plt.plot(ypred, color='red', label='Predicted Google Stock Price')
+plt.plot(y_train, color='blue', label='Actual Google Stock Price')
+plt.title('Google Stock Price Prediction (Training Set)')
+plt.ylabel('Google Stock Price')
+plt.legend()
+plt.show()
+
+
+# In[23]:
+
+
+XTest = []
+CloseData = list(testData['Close'])
+timeSteps = 50
+
+trainLast = list(data['Close'])[-timeSteps:]
+
+CloseData = trainLast + CloseData
+
+for i in range(timeSteps, len(CloseData)):
+    XTest.append(CloseData[i-timeSteps:i])
+
+XTest = np.array(XTest)
+print(XTest.shape)
+
+
+# In[24]:
+
+
+ypred = model.predict(XTest)
+ypred = sc.inverse_transform(ypred)
+
+Orignal = sc.inverse_transform(testData['Close'].values.reshape(-1, 1))
+
+plt.figure(figsize=(15, 5))
+plt.plot(ypred, color='red', label='Predicted Google Stock Price')
+plt.plot(Orignal, color='blue', label='Actual Google Stock Price')
+plt.title('Google Stock Price Prediction (test set))')
+plt.ylabel('Google Stock Price')
+plt.legend()
+plt.show()
+
+
+# In[ ]:
+
+
+
+
